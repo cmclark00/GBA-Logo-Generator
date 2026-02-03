@@ -204,6 +204,26 @@ function downloadROM(fieldData) {
         // GBA Header Generation
         var startVector = "2E0000EA";
         var logo = GBA_LOGO_HEX;
+        
+        // Check if user drew a custom logo
+        var customHex = convertLogoToHex();
+        // If it's not empty/default (simple check: if it has any set bits)
+        // convertLogoToHex returns hex string. If we clearLogo(), it's all "0".
+        // Actually, we kept the default logo visible. 
+        // So we should check if it DIFFERS from the default GB logo?
+        // Or just always use it if the user says "Download"?
+        // The user explicitly asked for it. Let's always use the grid content if it's GBA mode
+        // but we need to pad it because convertLogoToHex returns 96 hex chars (48 bytes).
+        // GBA logo is 156 bytes (312 hex chars).
+        
+        if (customHex.replace(/0/g, '').length > 0) {
+            logo = customHex;
+            // Pad to 156 bytes (312 chars)
+            while (logo.length < 312) {
+                logo += "FF"; // Pad with FF
+            }
+        }
+
         var checksum = calculateGBAHeaderChecksum(fieldData);
         var header = startVector + logo + fieldData + checksum + "0000"; // + 2 reserved bytes
 

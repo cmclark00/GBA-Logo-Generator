@@ -606,10 +606,14 @@
                         <h4 class="modal-title" id="gbaWarningModalLabel">GBA Logo Warning</h4>
                     </div>
                     <div class="modal-body" id="gbaWarningModalBody">
-                        Custom logo saving for GBA is not yet supported. The standard Nintendo logo will be used in the downloaded ROM to ensure it boots.
+                        <strong>Warning:</strong> The GBA logo you drew will be saved as <em>uncompressed</em> raw data. 
+                        <br><br>
+                        Because the GBA expects a compressed logo, this will appear as <strong>visual garbage or static</strong> during the boot sequence on real hardware and accurate emulators.
+                        <br><br>
+                        However, the ROM will be downloaded with your data in the header as requested.
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary btn-lg" data-dismiss="modal" onClick="downloadROM();">Understood</button>
+                        <button type="button" class="btn btn-primary btn-lg" data-dismiss="modal" onClick="downloadROM();">Download Anyway</button>
                     </div>
                 </div>
             </div>
