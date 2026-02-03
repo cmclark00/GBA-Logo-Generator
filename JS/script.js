@@ -43,7 +43,6 @@ function changeMode() {
         
         // Enable logo grid for GBA (warning: saving custom GBA logos not yet implemented)
         $('#dynamicHeight').css('opacity', '1').css('pointer-events', 'auto');
-        clearLogo(); // Clear it initially as we don't load the GBA logo into the grid yet
         
     } else {
         $('.gb-only').show();
