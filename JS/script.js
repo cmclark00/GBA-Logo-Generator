@@ -5,10 +5,13 @@ var mouseDown = false;
 var blackFlag = false;
 var lastElement = null;
 var LOGO_HEX = "CEED6666CC0D000B03730083000C000D0008111F8889000EDCCC6EE6DDDDD999BBBB67636E0EECCCDDDC999FBBB9333E";
+var GBA_LOGO_HEX = "24FFAE51699AA2213D84820A84E409AD11248B98C0817F21A352BE199309CE2010464A4AF82731EC58C7E83382E3CEBF85F4DF94CE4B09C194568AC01372A7FC9F844D73A3CA9A615897A327FC039876231DC7610304AE56BF38840040A70EFDFF52FE036F9530F197FBC08560D68025A963BE03014E38E2F9A234FFBB3E0344780090CB88113A9465C07C6387F03CAFD625E48B380AAC7221D4F807";
 var uploadedHexData = "C38B020000000000C38B02FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF87E15F1600195E2356D5E1E9FFFFFFFFFFFFFFFFFFFFFFFFC3FD01FFFFFFFFFFC31227FFFFFFFFFFC31227FFFFFFFFFFC37E01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00C35001CEED6666CC0D000B03730083000C000D0008111F8889000EDCCC6EE6DDDDD999BBBB67636E0EECCCDDDC999FBBB9333E";
 for (var i = 0; i < 32460; i++) {
     uploadedHexData += "FF";
 }
+
+var currentMode = "gb";
 
 // When the user left clicks, set mouseDown flag
 document.onmousedown = function() {
@@ -23,6 +26,35 @@ document.onmouseup = function() {
 function initialize() {
     setTableDimensions();
     loadLogo(LOGO_HEX);
+    changeMode();
+}
+
+function changeMode() {
+    var mode = document.getElementById('consoleModeSelect').value;
+    currentMode = mode;
+    if (mode === 'gba') {
+        $('.gb-only').hide();
+        $('#titleLabel').text('Game Title (12 chars)');
+        $('#titleInput').attr('placeholder', '12 ASCII characters').attr('maxlength', '12');
+        $('#manufacturerLabel').text('Game Code');
+        $('#manufacturerInput').attr('placeholder', '4 ASCII chars').attr('maxlength', '4');
+        $('#licenseeLabel').text('Maker Code');
+        $('#newLicenseeInput').attr('placeholder', '2 ASCII chars').attr('maxlength', '2');
+        
+        // Hide logo grid or overlay
+        clearLogo();
+        $('#dynamicHeight').css('opacity', '0.2').css('pointer-events', 'none');
+    } else {
+        $('.gb-only').show();
+        $('#titleLabel').text('Title');
+        $('#titleInput').attr('placeholder', '11 ASCII characters').attr('maxlength', '11');
+        $('#manufacturerLabel').text('Manufacturer');
+        $('#manufacturerInput').attr('placeholder', '4 character manufacturer code').attr('maxlength', '4');
+        $('#licenseeLabel').text('New Licensee Code');
+        $('#newLicenseeInput').attr('placeholder', '2 character ASCII code').attr('maxlength', '2');
+        
+        $('#dynamicHeight').css('opacity', '1').css('pointer-events', 'auto');
+    }
 }
 
 function setTableDimensions() {
@@ -134,8 +166,8 @@ function downloadFile() {
         return;
     }
     var downloadOverride = false; // if the logo data isn't okay, stops the download
-    // Check the logo
-    if (convertLogoToHex() !== LOGO_HEX) {
+    // Check the logo only for GB
+    if (currentMode === 'gb' && convertLogoToHex() !== LOGO_HEX) {
         downloadOverride = true;
         $('#confirmationModal').modal();
     }
@@ -146,31 +178,53 @@ function downloadFile() {
 
 function downloadROM(fieldData) {
     var hexData = ""; // this is binary representation of file
-    var fieldData = getFieldValues(); // if this is null then there was an error
-    if (fieldData === null) {
-        return;
+    if (!fieldData) {
+        fieldData = getFieldValues();
+        if (fieldData === null) return;
     }
-    // if there was hex data uploaded, inject the modifications into that
-    if (uploadedHexData.length > 0) {
-        // pre-header stuff
-        hexData = uploadedHexData.substr(0, 520);
-        hexData += convertLogoToHex();
-        hexData += fieldData;
-        // calculate header checksums
-        hexData += calculateHeaderChecksum(fieldData);
-        // calculate global checksums
-        hexData += calculateGlobalChecksum(hexData + uploadedHexData.substr(668, uploadedHexData.length));
-        // post-header stuff
-        hexData += uploadedHexData.substr(672, uploadedHexData.length);
-    } else { // otherwise, just create some garbage data
 
-        hexData = "C38B020000000000C38B02FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF87E15F1600195E2356D5E1E9FFFFFFFFFFFFFFFFFFFFFFFFC3FD01FFFFFFFFFFC31227FFFFFFFFFFC31227FFFFFFFFFFC37E01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00C35001";
-        hexData += convertLogoToHex();
-        hexData += fieldData;
-        hexData += calculateHeaderChecksum(fieldData);
-        // fill up the rest of the 32kb rom with 0xFF
-        for (var i = 0; i < 32432; i++) {
-            hexData += "FF";
+    if (currentMode === 'gba') {
+        // GBA Header Generation
+        var startVector = "2E0000EA";
+        var logo = GBA_LOGO_HEX;
+        var checksum = calculateGBAHeaderChecksum(fieldData);
+        var header = startVector + logo + fieldData + checksum + "0000"; // + 2 reserved bytes
+
+        // Use uploaded data if it looks like a user file (not default GB dummy)
+        // Default GB dummy starts with C38B02
+        if (uploadedHexData.length > 384 && uploadedHexData.substr(0, 6) !== "C38B02") {
+             hexData = header + uploadedHexData.substr(header.length);
+        } else {
+             hexData = header;
+             // Pad to 32KB
+             for (var i = hexData.length; i < 65536; i++) {
+                 hexData += "FF";
+             }
+        }
+    } else {
+        // GB Logic
+        // if there was hex data uploaded, inject the modifications into that
+        if (uploadedHexData.length > 0) {
+            // pre-header stuff
+            hexData = uploadedHexData.substr(0, 520);
+            hexData += convertLogoToHex();
+            hexData += fieldData;
+            // calculate header checksums
+            hexData += calculateHeaderChecksum(fieldData);
+            // calculate global checksums
+            hexData += calculateGlobalChecksum(hexData + uploadedHexData.substr(668, uploadedHexData.length));
+            // post-header stuff
+            hexData += uploadedHexData.substr(672, uploadedHexData.length);
+        } else { // otherwise, just create some garbage data
+
+            hexData = "C38B020000000000C38B02FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF87E15F1600195E2356D5E1E9FFFFFFFFFFFFFFFFFFFFFFFFC3FD01FFFFFFFFFFC31227FFFFFFFFFFC31227FFFFFFFFFFC37E01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00C35001";
+            hexData += convertLogoToHex();
+            hexData += fieldData;
+            hexData += calculateHeaderChecksum(fieldData);
+            // fill up the rest of the 32kb rom with 0xFF
+            for (var i = 0; i < 32432; i++) {
+                hexData += "FF";
+            }
         }
     }
 
@@ -200,10 +254,15 @@ function downloadROM(fieldData) {
     if (name === "") {
         name = "logo";
     }
-    if (document.getElementById('cgbSupportSelect').value == "00") {
-        a.download = name + ".gb";
+    
+    if (currentMode === 'gba') {
+        a.download = name + ".gba";
     } else {
-        a.download = name + ".gbc";
+        if (document.getElementById('cgbSupportSelect').value == "00") {
+            a.download = name + ".gb";
+        } else {
+            a.download = name + ".gbc";
+        }
     }
     a.dispatchEvent(clickEvent);
     setTimeout(function() {
@@ -390,7 +449,9 @@ function loadLogo(hexData) {
 
 // Resets the logo to the default "Nintendo"
 function resetLogo() {
-    loadLogo(LOGO_HEX);
+    if (currentMode === 'gb') {
+        loadLogo(LOGO_HEX);
+    }
 }
 
 // Blanks the logo
@@ -453,52 +514,82 @@ $(function() {
 function parseUploadedHexString(hexString) {
     // first clear everything
     clearEverything();
-    // then set variables
-    nintendoLogo = hexString.substr(520, 96);
-    title = hexString.substr(616, 22);
-    manufacturerCode = hexString.substr(638, 8);
-    cgbFlag = hexString.substr(646, 2);
-    newLicenseeCode = hexString.substr(648, 4);
-    sgbFlag = hexString.substr(652, 2);
-    cartridgeType = hexString.substr(654, 2);
-    romSize = hexString.substr(656, 2);
-    ramSize = hexString.substr(658, 2);
-    destinationCode = hexString.substr(660, 2);
-    oldLicenseeCode = hexString.substr(662, 2);
-    romVersionNumber = hexString.substr(664, 2);
 
-    // then update the UI
-    loadLogo(nintendoLogo);
-    document.getElementById('titleInput').value = title.getASCIIFromHex();
-    document.getElementById('manufacturerInput').value = manufacturerCode.getASCIIFromHex();
-    //setManufacturerCode(manufacturerCode);
-    //document.getElementById('manufacturerInput').value = manufacturerCode.getASCIIFromHex();
-    setCGBFlag(cgbFlag);
-    setNewLicenseeCode(newLicenseeCode);
-    //document.getElementById('newLicenseeInput').value = newLicenseeCode.getASCIIFromHex();
-    setSGBFlag(sgbFlag);
-    setCartridgeType(cartridgeType);
-    setRomSize(romSize);
-    setRamSize(ramSize);
-    setDestinationCode(destinationCode);
-    document.getElementById('oldLicenseeInput').value = oldLicenseeCode;
-    document.getElementById('versionNumberInput').value = romVersionNumber;
+    // Detect GBA or GB
+    var gbaLogoStart = "24FFAE";
+    // GB Logo Start at 0x104 (520 in hex string) is CEED66
+    
+    if (hexString.substr(8, 6) === gbaLogoStart) {
+        // GBA ROM Detected
+        document.getElementById('consoleModeSelect').value = 'gba';
+        changeMode();
+        
+        // Parse GBA fields
+        var title = hexString.substr(320, 24); // 0xA0
+        var gameCode = hexString.substr(344, 8); // 0xAC
+        var makerCode = hexString.substr(352, 4); // 0xB0
+        var version = hexString.substr(376, 2); // 0xBC
+        
+        document.getElementById('titleInput').value = title.getASCIIFromHex();
+        document.getElementById('manufacturerInput').value = gameCode.getASCIIFromHex();
+        document.getElementById('newLicenseeInput').value = makerCode.getASCIIFromHex();
+        document.getElementById('versionNumberInput').value = version;
+
+    } else {
+        // Assume GB/GBC
+        document.getElementById('consoleModeSelect').value = 'gb';
+        changeMode();
+        
+        // then set variables
+        nintendoLogo = hexString.substr(520, 96);
+        title = hexString.substr(616, 22);
+        manufacturerCode = hexString.substr(638, 8);
+        cgbFlag = hexString.substr(646, 2);
+        newLicenseeCode = hexString.substr(648, 4);
+        sgbFlag = hexString.substr(652, 2);
+        cartridgeType = hexString.substr(654, 2);
+        romSize = hexString.substr(656, 2);
+        ramSize = hexString.substr(658, 2);
+        destinationCode = hexString.substr(660, 2);
+        oldLicenseeCode = hexString.substr(662, 2);
+        romVersionNumber = hexString.substr(664, 2);
+
+        // then update the UI
+        loadLogo(nintendoLogo);
+        document.getElementById('titleInput').value = title.getASCIIFromHex();
+        document.getElementById('manufacturerInput').value = manufacturerCode.getASCIIFromHex();
+        //setManufacturerCode(manufacturerCode);
+        //document.getElementById('manufacturerInput').value = manufacturerCode.getASCIIFromHex();
+        setCGBFlag(cgbFlag);
+        setNewLicenseeCode(newLicenseeCode);
+        //document.getElementById('newLicenseeInput').value = newLicenseeCode.getASCIIFromHex();
+        setSGBFlag(sgbFlag);
+        setCartridgeType(cartridgeType);
+        setRomSize(romSize);
+        setRamSize(ramSize);
+        setDestinationCode(destinationCode);
+        document.getElementById('oldLicenseeInput').value = oldLicenseeCode;
+        document.getElementById('versionNumberInput').value = romVersionNumber;
+    }
 }
 
 // Gets the title hex based on title input
 function getTitle() {
     text = document.getElementById('titleInput').value;
+    var maxLength = currentMode === 'gba' ? 12 : 11;
     // Do checks
     if (text.length > 0 && text.isValidASCII()) {
         // First convert to hex string
         var returnString = text.toHexString();
-        // And then if length is less than 22, fill in remaining hex characters with 0's
-        for (i = returnString.length; i < 22; i++) {
+        // And then if length is less than max, fill in remaining hex characters with 0's
+        for (i = returnString.length; i < maxLength * 2; i++) {
             returnString += "0";
         }
         return returnString;
     } else if (text.length == 0) {
-        return "0000000000000000000000"
+        var str = "";
+        for(var i=0; i<maxLength*2; i++) str += "0";
+        return str;
     } else {
         return null;
     }
@@ -651,73 +742,117 @@ function getRomVersionNumber() {
 // Retrieves the values of all fields and concatenates them into a single hex string
 // If there are any errors, simply displays a popupbox instead and returns "NULL"
 function getFieldValues() {
-    // First get data
     var hexData = "";
-    var title = getTitle();
-    var manufacturerCode = getManufacturerCode();
-    var cgbFlag = getCGBFlag();
-    var newLicenseeCode = getNewLicenseeCode();
-    var sgbFlag = getSGBFlag();
-    var cartridgeType = getCartridgeType();
-    var romSize = getRomSize();
-    var ramSize = getRamSize();
-    var destinationCode = getDestinationCode();
-    var oldLicenseeCode = getOldLicenseeCode();
-    var romVersionNumber = getRomVersionNumber();
     var errorString = "";
-    // Check for invalid inputs
-    if (title === null) {
-        errorString = "Input for title was invalid\n";
-    }
-    if (manufacturerCode === null) {
-        errorString += "Input for manufacturer code was invalid\n";
-    }
-    if (cgbFlag === null) {
-        errorString += "Input for cgb flag was invalid\n";
-    }
-    if (newLicenseeCode === null) {
-        errorString += "Input for new licensee code was invalid\n";
-    }
-    if (sgbFlag === null) {
-        errorString += "Input for sgb flag was invalid\n";
-    }
-    if (cartridgeType === null) {
-        errorString += "Input for cartridge type was invalid\n";
-    }
-    if (romSize === null) {
-        errorString += "Input for rom size was invalid\n";
-    }
-    if (ramSize === null) {
-        errorString += "Input for ram size was invalid\n";
-    }
-    if (destinationCode === null) {
-        errorString += "Input for destination code was invalid\n";
-    }
-    if (oldLicenseeCode === null) {
-        errorString += "Input for old licensee code was invalid\n";
-    }
-    if (romVersionNumber === null) {
-        errorString += "Input for rom version number was invalid\n";
-    }
-    if (errorString !== "") {
-        document.getElementById('alertModalBody').innerText = errorString;
-        $('#alertModal').modal();
-        // alert(errorString);
-        return null;
-    } else {
+
+    if (currentMode === 'gba') {
+        var title = getTitle();
+        var gameCode = getManufacturerCode(); // Reuse manufacturer input
+        var makerCode = getNewLicenseeCode(); // Reuse new licensee input
+        var version = getRomVersionNumber();
+
+        if (title === null) errorString += "Input for title was invalid\n";
+        if (gameCode === null) errorString += "Input for Game Code was invalid\n";
+        if (makerCode === null) errorString += "Input for Maker Code was invalid\n";
+        if (version === null) errorString += "Input for version was invalid\n";
+
+        if (errorString !== "") {
+            document.getElementById('alertModalBody').innerText = errorString;
+            $('#alertModal').modal();
+            return null;
+        }
+
         hexData += title;
-        hexData += manufacturerCode;
-        hexData += cgbFlag;
-        hexData += newLicenseeCode;
-        hexData += sgbFlag;
-        hexData += cartridgeType;
-        hexData += romSize;
-        hexData += ramSize;
-        hexData += destinationCode;
-        hexData += oldLicenseeCode;
-        hexData += romVersionNumber;
+        hexData += gameCode;
+        hexData += makerCode;
+        hexData += "96"; // Fixed
+        hexData += "00"; // Main Unit
+        hexData += "00"; // Device Type
+        hexData += "00000000000000"; // Reserved 7 bytes
+        hexData += version;
         return hexData;
+    } else {
+        // First get data
+        var title = getTitle();
+        var manufacturerCode = getManufacturerCode();
+        var cgbFlag = getCGBFlag();
+        var newLicenseeCode = getNewLicenseeCode();
+        var sgbFlag = getSGBFlag();
+        var cartridgeType = getCartridgeType();
+        var romSize = getRomSize();
+        var ramSize = getRamSize();
+        var destinationCode = getDestinationCode();
+        var oldLicenseeCode = getOldLicenseeCode();
+        var romVersionNumber = getRomVersionNumber();
+        
+        // Check for invalid inputs
+        if (title === null) {
+            errorString = "Input for title was invalid\n";
+        }
+        if (manufacturerCode === null) {
+            errorString += "Input for manufacturer code was invalid\n";
+        }
+        if (cgbFlag === null) {
+            errorString += "Input for cgb flag was invalid\n";
+        }
+        if (newLicenseeCode === null) {
+            errorString += "Input for new licensee code was invalid\n";
+        }
+        if (sgbFlag === null) {
+            errorString += "Input for sgb flag was invalid\n";
+        }
+        if (cartridgeType === null) {
+            errorString += "Input for cartridge type was invalid\n";
+        }
+        if (romSize === null) {
+            errorString += "Input for rom size was invalid\n";
+        }
+        if (ramSize === null) {
+            errorString += "Input for ram size was invalid\n";
+        }
+        if (destinationCode === null) {
+            errorString += "Input for destination code was invalid\n";
+        }
+        if (oldLicenseeCode === null) {
+            errorString += "Input for old licensee code was invalid\n";
+        }
+        if (romVersionNumber === null) {
+            errorString += "Input for rom version number was invalid\n";
+        }
+        if (errorString !== "") {
+            document.getElementById('alertModalBody').innerText = errorString;
+            $('#alertModal').modal();
+            // alert(errorString);
+            return null;
+        } else {
+            hexData += title;
+            hexData += manufacturerCode;
+            hexData += cgbFlag;
+            hexData += newLicenseeCode;
+            hexData += sgbFlag;
+            hexData += cartridgeType;
+            hexData += romSize;
+            hexData += ramSize;
+            hexData += destinationCode;
+            hexData += oldLicenseeCode;
+            hexData += romVersionNumber;
+            return hexData;
+        }
     }
+}
+
+function calculateGBAHeaderChecksum(hexString) {
+    var checksum = 0;
+    // hexString contains the bytes
+    for (var i = 0; i < hexString.length; i += 2) {
+        var byte = parseInt("0x" + hexString.substr(i, 2));
+        checksum = (checksum - byte) & 0xFF;
+    }
+    checksum = (checksum - 0x19) & 0xFF;
+    // Convert to hex and ensure 2 chars
+    var hex = checksum.toString(16).toUpperCase();
+    if (hex.length < 2) hex = "0" + hex;
+    return hex;
 }
 
 /*

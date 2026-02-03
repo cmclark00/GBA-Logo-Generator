@@ -432,16 +432,25 @@
         <div align="center" style="padding: 20px;">
             <!-- <form class="form-inline"> -->
             <form>
-                <div class=row>
+                <div class="row">
+                    <div class="form-group col-md-12">
+                        <label for="consoleModeSelect">Console Mode</label>
+                        <select id="consoleModeSelect" class="form-control" onchange="changeMode()">
+                            <option value="gb" selected>Game Boy / Game Boy Color</option>
+                            <option value="gba">Game Boy Advance</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
                     <div class="form-group col-md-3">
-                        <label for="titleInput">Title</label>
+                        <label for="titleInput" id="titleLabel">Title</label>
                         <input type="text" class="form-control input-xlarge" id="titleInput" placeholder="11 ASCII characters" maxlength="11">
                     </div>
                     <div class="form-group col-md-1">
-                        <label for="manufacturerInput">Manufacturer</label>
-                        <input type="text" class="form-control" id="manufacturerInput" placeholder="4 character manufacturer code" maxlength="4">
+                        <label for="manufacturerInput" id="manufacturerLabel">Manufacturer</label>
+                        <input type="text" class="form-control" id="manufacturerInput" placeholder="4 chars" maxlength="4">
                     </div>
-                    <div class="form-group col-md-2">
+                    <div class="form-group col-md-2 gb-only">
                         <label for="cgbSupportSelect">CGB?</label>
                         <select id="cgbSupportSelect" class="form-control">
                             <option value="" disabled>Select CGB Support</option>
@@ -451,17 +460,17 @@
                         </select>
                     </div>
                     <div class="form-group col-md-2">
-                        <label for="newLicenseeInput" style="white-space:nowrap;">New Licensee Code</label>
-                        <input type="text" class="form-control" id="newLicenseeInput" placeholder="2 character ASCII code, indicating company or publisher" maxlength="2">
+                        <label for="newLicenseeInput" id="licenseeLabel" style="white-space:nowrap;">New Licensee Code</label>
+                        <input type="text" class="form-control" id="newLicenseeInput" placeholder="2 chars" maxlength="2">
                     </div>
-                    <div class="form-group col-md-1">
+                    <div class="form-group col-md-1 gb-only">
                         <label for="sgbSelect">SGB?</label>
                         <select id="sgbSelect" class="form-control">
                             <option value="00" selected>No</option>
                             <option value="03">Yes</option>
                         </select>
                     </div>
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-3 gb-only">
                         <label for="cartridgeTypeSelect">Mapper</label>
                         <select class="form-control" id="cartridgeTypeSelect">
                             <option value="" disabled>Select mapper</option>
@@ -500,7 +509,7 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-3 gb-only">
                         <label for="romSizeSelect">ROM Size</label>
                         <select id="romSizeSelect" class="form-control">
                             <option value="" disabled>Select ROM size</option>
@@ -517,7 +526,7 @@
                             <option value="54">1.5MByte (96 banks)</option>
                         </select>
                     </div>
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-3 gb-only">
                         <label for="ramSizeSelect">RAM Size</label>
                         <select id="ramSizeSelect" class="form-control">
                             <option value="" disabled>Select RAM size</option>
@@ -529,14 +538,14 @@
                             <option value="05">64KBytes</option>
                         </select>
                     </div>
-                    <div class="form-group col-md-2">
+                    <div class="form-group col-md-2 gb-only">
                         <label for="destinationSelect">Japan?</label>
                         <select id="destinationSelect" class="form-control">
                             <option value="01" selected>No</option>
                             <option value="00">Yes</option>
                         </select>
                     </div>
-                    <div class="form-group col-md-2">
+                    <div class="form-group col-md-2 gb-only">
                         <label for="oldLicenseeInput">Old Licensee Code</label>
                         <input type="text" class="form-control" id="oldLicenseeInput" placeholder="2 hex symbols" maxlength="2">
                     </div>
