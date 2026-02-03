@@ -41,9 +41,10 @@ function changeMode() {
         $('#licenseeLabel').text('Maker Code');
         $('#newLicenseeInput').attr('placeholder', '2 ASCII chars').attr('maxlength', '2');
         
-        // Hide logo grid or overlay
-        clearLogo();
-        $('#dynamicHeight').css('opacity', '0.2').css('pointer-events', 'none');
+        // Enable logo grid for GBA (warning: saving custom GBA logos not yet implemented)
+        $('#dynamicHeight').css('opacity', '1').css('pointer-events', 'auto');
+        clearLogo(); // Clear it initially as we don't load the GBA logo into the grid yet
+        
     } else {
         $('.gb-only').show();
         $('#titleLabel').text('Title');
@@ -54,6 +55,9 @@ function changeMode() {
         $('#newLicenseeInput').attr('placeholder', '2 character ASCII code').attr('maxlength', '2');
         
         $('#dynamicHeight').css('opacity', '1').css('pointer-events', 'auto');
+        if (convertLogoToHex().replace(/0/g, '') === "") { // If empty, load default?
+            loadLogo(LOGO_HEX);
+        }
     }
 }
 
@@ -166,11 +170,25 @@ function downloadFile() {
         return;
     }
     var downloadOverride = false; // if the logo data isn't okay, stops the download
-    // Check the logo only for GB
+    
+    // Check the logo for GB
     if (currentMode === 'gb' && convertLogoToHex() !== LOGO_HEX) {
         downloadOverride = true;
         $('#confirmationModal').modal();
+    } 
+    // Check for GBA custom logo (if grid is not empty)
+    else if (currentMode === 'gba') {
+        // Simple check: is the logo grid not empty?
+        // Note: convertLogoToHex returns 0s for empty cells, so "00...00" if empty.
+        // Actually convertLogoToHex returns a string. If it's all 0s, it's empty.
+        var currentHex = convertLogoToHex();
+        // Remove 0s to see if anything is left.
+        if (currentHex.replace(/0/g, '').length > 0) {
+            downloadOverride = true;
+            $('#gbaWarningModal').modal();
+        }
     }
+
     if (!downloadOverride) {
         downloadROM(fieldData);
     }
